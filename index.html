@@ -48,14 +48,21 @@
       border-radius: 5px;
       cursor: pointer;
       margin-top: 15px;
-      width: 48%;
+      width: 100%;
     }
     button:hover {
       background-color: #007ab8;
     }
+    .hidden {
+      display: none;
+    }
     .button-row {
       display: flex;
       justify-content: space-between;
+      gap: 10px;
+    }
+    .button-row button {
+      width: 48%;
     }
   </style>
 </head>
@@ -86,66 +93,128 @@
     <label for="textInput">Введите текст:</label>
     <textarea id="textInput" rows="4" placeholder="Введите текст для озвучивания..."></textarea>
     
-    <div class="button-row">
-      <button id="previewButton">Предпросмотр</button>
-      <button id="sendButton">Отправить голосовым</button>
+    <button id="previewButton">Предпрослушивание</button>
+    
+    <!-- Контейнер для аудиоплеера и дополнительных кнопок -->
+    <div id="playerContainer" class="hidden">
+      <h3>Предпрослушивание</h3>
+      <audio id="audioPlayer" controls></audio>
+      <div class="button-row">
+        <button id="downloadButton">Скачать</button>
+        <button id="sendButton">Отправить голосовым</button>
+      </div>
     </div>
     
     <p style="font-size: 14px; color: #777;">
-      После нажатия кнопки, аудио будет сгенерировано и отправлено в чат Telegram.
+      После предпрослушивания выберите дальнейшее действие.
     </p>
   </div>
   
   <script>
     // Инициализация Telegram Web App
     const webApp = window.Telegram.WebApp;
-    webApp.expand(); // Разворачиваем приложение на весь экран
+    webApp.expand();
 
-    // Обновление значений слайдеров
+    // Элементы интерфейса
     const stabilityRange = document.getElementById("stabilityRange");
     const stabilityValue = document.getElementById("stabilityValue");
+    const similarityRange = document.getElementById("similarityRange");
+    const similarityValue = document.getElementById("similarityValue");
+    const previewButton = document.getElementById("previewButton");
+    const playerContainer = document.getElementById("playerContainer");
+    const audioPlayer = document.getElementById("audioPlayer");
+    const downloadButton = document.getElementById("downloadButton");
+    const sendButton = document.getElementById("sendButton");
+
+    // Обновление значений слайдеров
     stabilityRange.addEventListener("input", () => {
       stabilityValue.textContent = stabilityRange.value;
     });
-    
-    const similarityRange = document.getElementById("similarityRange");
-    const similarityValue = document.getElementById("similarityValue");
     similarityRange.addEventListener("input", () => {
       similarityValue.textContent = similarityRange.value;
     });
-    
-    // Функция для отправки данных в бота
-    function sendData(action) {
+
+    // URL вашего серверлес‑endpoint для генерации аудио (должен быть https!)
+    const AUDIO_GENERATION_ENDPOINT = "https://yourserver.com/api/generate-audio";
+
+    // Функция предпрослушивания: вызываем сервер для генерации аудио
+    async function previewAudio() {
       const voice = document.getElementById("voiceSelect").value;
-      const stability = document.getElementById("stabilityRange").value;
-      const similarity = document.getElementById("similarityRange").value;
+      const stability = stabilityRange.value;
+      const similarity = similarityRange.value;
       const text = document.getElementById("textInput").value.trim();
-      
-      if (text === "") {
+
+      if (!text) {
         alert("Пожалуйста, введите текст.");
         return;
       }
-      
+
+      previewButton.disabled = true;
+      previewButton.textContent = "Генерация аудио...";
+
+      try {
+        const response = await fetch(AUDIO_GENERATION_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            voice: voice,
+            stability: stability,
+            similarity_boost: similarity,
+            text: text
+          })
+        });
+        if (!response.ok) throw new Error("Ошибка генерации аудио");
+        const data = await response.json();
+        // Ожидаем, что endpoint вернул объект { audio: "data:audio/mpeg;base64,..." }
+        const audioDataUrl = data.audio;
+        // Устанавливаем аудиоплеер
+        audioPlayer.src = audioDataUrl;
+        playerContainer.classList.remove("hidden");
+      } catch (error) {
+        alert("Ошибка при генерации аудио: " + error);
+      } finally {
+        previewButton.disabled = false;
+        previewButton.textContent = "Предпрослушивание";
+      }
+    }
+
+    previewButton.addEventListener("click", previewAudio);
+
+    // Функция скачивания аудио
+    function downloadAudio() {
+      const link = document.createElement("a");
+      link.href = audioPlayer.src;
+      link.download = "preview.mp3";
+      link.click();
+    }
+
+    downloadButton.addEventListener("click", downloadAudio);
+
+    // Функция отправки голосового: отправляем исходные параметры в бота
+    function sendVoice() {
+      const voice = document.getElementById("voiceSelect").value;
+      const stability = stabilityRange.value;
+      const similarity = similarityRange.value;
+      const text = document.getElementById("textInput").value.trim();
+
+      if (!text) {
+        alert("Пожалуйста, введите текст.");
+        return;
+      }
+
+      // Отправляем данные в бота – бот повторно сгенерирует аудио и отправит его в чат
       const payload = {
         voice: voice,
         stability: stability,
         similarity_boost: similarity,
         text: text,
-        action: action  // "preview" или "send"
+        action: "send"
       };
-      
-      // Отправляем данные обратно в бота
       webApp.sendData(JSON.stringify(payload));
-      alert("Данные отправлены. Проверьте чат Telegram для прослушивания аудио.");
+      alert("Данные отправлены в Telegram. Проверьте чат для голосового сообщения.");
     }
-    
-    document.getElementById("previewButton").addEventListener("click", () => {
-      sendData("preview");
-    });
-    
-    document.getElementById("sendButton").addEventListener("click", () => {
-      sendData("send");
-    });
+
+    sendButton.addEventListener("click", sendVoice);
   </script>
 </body>
 </html>
