@@ -7,9 +7,9 @@
   <style>
     body {
       font-family: Arial, sans-serif;
+      background: #f0f2f5;
       margin: 0;
       padding: 20px;
-      background: #f0f2f5;
     }
     .container {
       max-width: 600px;
@@ -26,7 +26,7 @@
     label {
       font-weight: bold;
     }
-    select, textarea {
+    select, input[type="range"], textarea {
       width: 100%;
       padding: 10px;
       margin-top: 5px;
@@ -34,39 +34,66 @@
       border: 1px solid #ccc;
       box-sizing: border-box;
     }
+    .slider-value {
+      text-align: right;
+      font-size: 14px;
+      color: #555;
+    }
     button {
       background-color: #0088cc;
       border: none;
       color: white;
-      padding: 10px 20px;
+      padding: 10px;
       font-size: 16px;
       border-radius: 5px;
       cursor: pointer;
       margin-top: 15px;
-      width: 100%;
+      width: 48%;
     }
     button:hover {
       background-color: #007ab8;
+    }
+    .button-row {
+      display: flex;
+      justify-content: space-between;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Озвучивание текста</h1>
-    <p>Выберите голос и введите текст для озвучивания через ElevenLabs API.</p>
+    <p>Выберите голос, настройте параметры и введите текст для озвучивания через ElevenLabs.</p>
     
     <label for="voiceSelect">Выберите голос:</label>
     <select id="voiceSelect">
-      <option value="21m00Tcm4TlvDq8ikWAM">Голос по умолчанию</option>
-      <!-- Добавьте сюда дополнительные варианты голосов, полученные от API -->
+      <option value="21m00Tcm4TlvDq8ikWAM">Standard Male (Default)</option>
+      <option value="EXAVITQu4vr4xnSDxMaL">Standard Female</option>
+      <option value="AZnzlk1XvdvUeBnOPNw0">Standard Neutral</option>
     </select>
+    
+    <br><br>
+    
+    <label for="stabilityRange">Стабильность: <span id="stabilityValue">0.75</span></label>
+    <input type="range" id="stabilityRange" min="0" max="1" step="0.01" value="0.75">
+    
+    <br><br>
+    
+    <label for="similarityRange">Похожесть: <span id="similarityValue">0.75</span></label>
+    <input type="range" id="similarityRange" min="0" max="1" step="0.01" value="0.75">
     
     <br><br>
     
     <label for="textInput">Введите текст:</label>
     <textarea id="textInput" rows="4" placeholder="Введите текст для озвучивания..."></textarea>
     
-    <button id="synthesizeButton">Озвучить текст</button>
+    <div class="button-row">
+      <button id="previewButton">Предпросмотр</button>
+      <button id="sendButton">Отправить голосовым</button>
+    </div>
+    
+    <p style="font-size: 14px; color: #777;">
+      После нажатия кнопки, аудио будет сгенерировано и отправлено в чат Telegram.
+    </p>
   </div>
   
   <script>
@@ -74,22 +101,50 @@
     const webApp = window.Telegram.WebApp;
     webApp.expand(); // Разворачиваем приложение на весь экран
 
-    // Обработчик кнопки
-    document.getElementById("synthesizeButton").addEventListener("click", function() {
-      const selectedVoice = document.getElementById("voiceSelect").value;
+    // Обновление значений слайдеров
+    const stabilityRange = document.getElementById("stabilityRange");
+    const stabilityValue = document.getElementById("stabilityValue");
+    stabilityRange.addEventListener("input", () => {
+      stabilityValue.textContent = stabilityRange.value;
+    });
+    
+    const similarityRange = document.getElementById("similarityRange");
+    const similarityValue = document.getElementById("similarityValue");
+    similarityRange.addEventListener("input", () => {
+      similarityValue.textContent = similarityRange.value;
+    });
+    
+    // Функция для отправки данных в бота
+    function sendData(action) {
+      const voice = document.getElementById("voiceSelect").value;
+      const stability = document.getElementById("stabilityRange").value;
+      const similarity = document.getElementById("similarityRange").value;
       const text = document.getElementById("textInput").value.trim();
+      
       if (text === "") {
         alert("Пожалуйста, введите текст.");
         return;
       }
-      // Формируем данные для отправки
+      
       const payload = {
-        voice: selectedVoice,
-        text: text
+        voice: voice,
+        stability: stability,
+        similarity_boost: similarity,
+        text: text,
+        action: action  // "preview" или "send"
       };
-      // Отправляем данные обратно в бот через Telegram WebApp API
+      
+      // Отправляем данные обратно в бота
       webApp.sendData(JSON.stringify(payload));
-      alert("Данные отправлены: " + JSON.stringify(payload));
+      alert("Данные отправлены. Проверьте чат Telegram для прослушивания аудио.");
+    }
+    
+    document.getElementById("previewButton").addEventListener("click", () => {
+      sendData("preview");
+    });
+    
+    document.getElementById("sendButton").addEventListener("click", () => {
+      sendData("send");
     });
   </script>
 </body>
