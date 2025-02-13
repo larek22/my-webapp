@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Telegram Web App - Озвучивание</title>
+  <title>Telegram Web App - Озвучивание текста</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     body {
@@ -25,6 +25,8 @@
     }
     label {
       font-weight: bold;
+      display: block;
+      margin-top: 10px;
     }
     select, input[type="range"], textarea {
       width: 100%;
@@ -35,7 +37,6 @@
       box-sizing: border-box;
     }
     .slider-value {
-      text-align: right;
       font-size: 14px;
       color: #555;
     }
@@ -53,16 +54,17 @@
     button:hover {
       background-color: #007ab8;
     }
-    .hidden {
+    #audioContainer {
+      margin-top: 20px;
       display: none;
     }
     .button-row {
       display: flex;
-      justify-content: space-between;
       gap: 10px;
+      margin-top: 10px;
     }
     .button-row button {
-      width: 48%;
+      width: 50%;
     }
   </style>
 </head>
@@ -78,36 +80,26 @@
       <option value="AZnzlk1XvdvUeBnOPNw0">Standard Neutral</option>
     </select>
     
-    <br><br>
+    <label for="stability">Стабильность: <span id="stabilityVal" class="slider-value">0.75</span></label>
+    <input type="range" id="stability" min="0" max="1" step="0.01" value="0.75">
     
-    <label for="stabilityRange">Стабильность: <span id="stabilityValue">0.75</span></label>
-    <input type="range" id="stabilityRange" min="0" max="1" step="0.01" value="0.75">
-    
-    <br><br>
-    
-    <label for="similarityRange">Похожесть: <span id="similarityValue">0.75</span></label>
-    <input type="range" id="similarityRange" min="0" max="1" step="0.01" value="0.75">
-    
-    <br><br>
+    <label for="similarity">Похожесть: <span id="similarityVal" class="slider-value">0.75</span></label>
+    <input type="range" id="similarity" min="0" max="1" step="0.01" value="0.75">
     
     <label for="textInput">Введите текст:</label>
     <textarea id="textInput" rows="4" placeholder="Введите текст для озвучивания..."></textarea>
     
-    <button id="previewButton">Предпрослушивание</button>
+    <button id="previewBtn">Предпрослушивание</button>
     
-    <!-- Контейнер для аудиоплеера и дополнительных кнопок -->
-    <div id="playerContainer" class="hidden">
-      <h3>Предпрослушивание</h3>
+    <!-- Контейнер с аудиоплеером и дополнительными кнопками -->
+    <div id="audioContainer">
+      <h3>Предпрослушивание:</h3>
       <audio id="audioPlayer" controls></audio>
       <div class="button-row">
-        <button id="downloadButton">Скачать</button>
-        <button id="sendButton">Отправить голосовым</button>
+        <button id="downloadBtn">Скачать</button>
+        <button id="sendBtn">Отправить голосовым</button>
       </div>
     </div>
-    
-    <p style="font-size: 14px; color: #777;">
-      После предпрослушивания выберите дальнейшее действие.
-    </p>
   </div>
   
   <script>
@@ -115,47 +107,44 @@
     const webApp = window.Telegram.WebApp;
     webApp.expand();
 
-    // Элементы интерфейса
-    const stabilityRange = document.getElementById("stabilityRange");
-    const stabilityValue = document.getElementById("stabilityValue");
-    const similarityRange = document.getElementById("similarityRange");
-    const similarityValue = document.getElementById("similarityValue");
-    const previewButton = document.getElementById("previewButton");
-    const playerContainer = document.getElementById("playerContainer");
-    const audioPlayer = document.getElementById("audioPlayer");
-    const downloadButton = document.getElementById("downloadButton");
-    const sendButton = document.getElementById("sendButton");
-
     // Обновление значений слайдеров
-    stabilityRange.addEventListener("input", () => {
-      stabilityValue.textContent = stabilityRange.value;
+    const stabilityInput = document.getElementById("stability");
+    const stabilityVal = document.getElementById("stabilityVal");
+    stabilityInput.addEventListener("input", () => {
+      stabilityVal.textContent = stabilityInput.value;
     });
-    similarityRange.addEventListener("input", () => {
-      similarityValue.textContent = similarityRange.value;
+    
+    const similarityInput = document.getElementById("similarity");
+    const similarityVal = document.getElementById("similarityVal");
+    similarityInput.addEventListener("input", () => {
+      similarityVal.textContent = similarityInput.value;
     });
-
-    // URL вашего серверлес‑endpoint для генерации аудио (должен быть https!)
-    const AUDIO_GENERATION_ENDPOINT = "https://yourserver.com/api/generate-audio";
-
-    // Функция предпрослушивания: вызываем сервер для генерации аудио
-    async function previewAudio() {
+    
+    // URL вашего серверного endpoint для генерации аудио (замените на реальный, HTTPS!)
+    const AUDIO_ENDPOINT = "https://your-serverless-endpoint.com/api/generate-audio";
+    
+    // Функция для предпрослушивания аудио
+    async function generateAudio() {
       const voice = document.getElementById("voiceSelect").value;
-      const stability = stabilityRange.value;
-      const similarity = similarityRange.value;
+      const stability = parseFloat(stabilityInput.value);
+      const similarity = parseFloat(similarityInput.value);
       const text = document.getElementById("textInput").value.trim();
-
+      
       if (!text) {
         alert("Пожалуйста, введите текст.");
         return;
       }
-
-      previewButton.disabled = true;
-      previewButton.textContent = "Генерация аудио...";
-
+      
+      const previewBtn = document.getElementById("previewBtn");
+      previewBtn.disabled = true;
+      previewBtn.textContent = "Генерация...";
+      
       try {
-        const response = await fetch(AUDIO_GENERATION_ENDPOINT, {
+        const response = await fetch(AUDIO_ENDPOINT, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json"
+          },
           body: JSON.stringify({
             voice: voice,
             stability: stability,
@@ -163,58 +152,64 @@
             text: text
           })
         });
-        if (!response.ok) throw new Error("Ошибка генерации аудио");
+        if (!response.ok) {
+          throw new Error("Ошибка при генерации аудио");
+        }
         const data = await response.json();
-        // Ожидаем, что endpoint вернул объект { audio: "data:audio/mpeg;base64,..." }
+        // Ожидаем, что сервер вернул объект с полем audio в формате data URL (например, "data:audio/mpeg;base64,...")
         const audioDataUrl = data.audio;
-        // Устанавливаем аудиоплеер
+        if (!audioDataUrl) {
+          throw new Error("Ответ не содержит аудио");
+        }
+        const audioPlayer = document.getElementById("audioPlayer");
         audioPlayer.src = audioDataUrl;
-        playerContainer.classList.remove("hidden");
+        document.getElementById("audioContainer").style.display = "block";
       } catch (error) {
-        alert("Ошибка при генерации аудио: " + error);
+        alert("Ошибка: " + error.message);
       } finally {
-        previewButton.disabled = false;
-        previewButton.textContent = "Предпрослушивание";
+        previewBtn.disabled = false;
+        previewBtn.textContent = "Предпрослушивание";
       }
     }
-
-    previewButton.addEventListener("click", previewAudio);
-
-    // Функция скачивания аудио
-    function downloadAudio() {
+    
+    document.getElementById("previewBtn").addEventListener("click", generateAudio);
+    
+    // Функция для скачивания аудио
+    document.getElementById("downloadBtn").addEventListener("click", () => {
+      const audioPlayer = document.getElementById("audioPlayer");
+      if (!audioPlayer.src) {
+        alert("Нет аудио для скачивания!");
+        return;
+      }
       const link = document.createElement("a");
       link.href = audioPlayer.src;
-      link.download = "preview.mp3";
+      link.download = "audio.mp3";
       link.click();
-    }
-
-    downloadButton.addEventListener("click", downloadAudio);
-
-    // Функция отправки голосового: отправляем исходные параметры в бота
-    function sendVoice() {
+    });
+    
+    // Функция для отправки аудио голосовым (отправка данных в Telegram)
+    document.getElementById("sendBtn").addEventListener("click", () => {
       const voice = document.getElementById("voiceSelect").value;
-      const stability = stabilityRange.value;
-      const similarity = similarityRange.value;
+      const stability = parseFloat(stabilityInput.value);
+      const similarity = parseFloat(similarityInput.value);
       const text = document.getElementById("textInput").value.trim();
-
+      
       if (!text) {
         alert("Пожалуйста, введите текст.");
         return;
       }
-
-      // Отправляем данные в бота – бот повторно сгенерирует аудио и отправит его в чат
+      
+      // Отправляем данные в Telegram через Web App API, чтобы бот (или система) могла повторно сгенерировать аудио и отправить голосовое сообщение
       const payload = {
+        action: "send_voice",
         voice: voice,
         stability: stability,
         similarity_boost: similarity,
-        text: text,
-        action: "send"
+        text: text
       };
       webApp.sendData(JSON.stringify(payload));
-      alert("Данные отправлены в Telegram. Проверьте чат для голосового сообщения.");
-    }
-
-    sendButton.addEventListener("click", sendVoice);
+      alert("Данные отправлены. Проверьте чат Telegram.");
+    });
   </script>
 </body>
 </html>
